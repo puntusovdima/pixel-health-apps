@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#0f1420" />
+<title>Work Mode</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg:#0f1420; --card:#182131; --card2:#1e293b; --fg:#eaf0fb; --muted:#93a2bd;
+    --accent:#4ea1ff; --accent2:#6ee7b7; --warn:#fbbf24; --danger:#fb7185; --line:#26324a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; height:100%}
+  body{
+    background:var(--bg); color:var(--fg);
+    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column; min-height:100dvh;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  header{padding:14px 18px 6px; display:flex; align-items:center; justify-content:space-between}
+  header h1{font-size:18px; margin:0; letter-spacing:.2px}
+  header .sub{color:var(--muted); font-size:12px}
+  main{flex:1; display:flex; flex-direction:column; padding:8px 16px 16px; gap:12px}
+
+  /* ---- setup screen ---- */
+  .screen{display:none; flex-direction:column; gap:12px; flex:1}
+  .screen.active{display:flex}
+  .label{color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.6px; margin:2px 2px}
+  .programs{display:flex; flex-direction:column; gap:10px}
+  .prog{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px;
+    display:flex; align-items:center; gap:14px; cursor:pointer; transition:.15s;
+  }
+  .prog.sel{border-color:var(--accent); background:var(--card2)}
+  .prog .emoji{font-size:26px}
+  .prog .meta{flex:1}
+  .prog .meta .name{font-weight:600}
+  .prog .meta .desc{color:var(--muted); font-size:13px}
+  .prog .len{color:var(--accent2); font-size:13px; font-weight:600; white-space:nowrap}
+
+  .sliders{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; display:flex; flex-direction:column; gap:16px}
+  .sliders.locked{opacity:.5; pointer-events:none}
+  .slider .row{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px}
+  .slider .val{font-weight:700; color:var(--accent)}
+  input[type=range]{width:100%; accent-color:var(--accent)}
+  .toggle{display:flex; align-items:center; gap:10px; color:var(--muted); font-size:14px}
+  .toggle input{width:20px; height:20px; accent-color:var(--accent)}
+
+  .btn{
+    border:none; border-radius:14px; padding:15px; font-size:16px; font-weight:700; color:#04122b;
+    background:linear-gradient(180deg,var(--accent),#2f7fe0); cursor:pointer; width:100%;
+  }
+  .btn.ghost{background:transparent; color:var(--fg); border:1px solid var(--line)}
+  .btn.good{background:linear-gradient(180deg,var(--accent2),#34d399); color:#04231a}
+  .btn.wide{margin-top:auto}
+
+  /* ---- run screen ---- */
+  #run{align-items:center; text-align:center}
+  .stage{color:var(--muted); font-size:13px; letter-spacing:2px; text-transform:uppercase}
+  .stage.break{color:var(--accent2)}
+  .exname{font-size:24px; font-weight:700; margin:2px 0 0}
+  .poseWrap{position:relative; width:min(72vw,300px); aspect-ratio:1/1; margin:6px auto 0}
+  .ring{position:absolute; inset:0}
+  .glyph{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:74px}
+  .time{font-size:52px; font-weight:800; font-variant-numeric:tabular-nums; margin-top:6px}
+  .time.break{color:var(--accent2)}
+  .cue{color:var(--muted); font-size:14px; min-height:2.6em; padding:0 8px; max-width:360px}
+  .upnext{color:var(--muted); font-size:13px}
+  .upnext b{color:var(--fg)}
+  .didWrap{min-height:52px; display:flex; align-items:center; justify-content:center; width:100%; max-width:420px}
+  .controls{display:flex; gap:10px; width:100%; max-width:420px; margin-top:auto}
+  .controls .btn{flex:1}
+  .dots{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; max-width:340px}
+  .dot{width:9px; height:9px; border-radius:50%; background:var(--line)}
+  .dot.done{background:var(--accent2)} .dot.cur{background:var(--accent); transform:scale(1.35)}
+
+  /* ---- done screen ---- */
+  #done{align-items:center; text-align:center; justify-content:center; gap:16px}
+  #done .big{font-size:40px}
+  #done .stat{color:var(--muted)}
+  .card{background:linear-gradient(180deg,#20304a,#182131); border:1px solid var(--line); border-radius:16px; padding:16px; max-width:360px}
+  .card .t{font-weight:700; color:var(--accent2)}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>🎯 Work Mode</h1><div class="sub" id="sub">Set your Pomodoro</div></div>
+  <div class="sub" id="clock"></div>
+</header>
+<main>
+
+  <!-- SETUP -->
+  <section id="setup" class="screen active">
+    <div class="label">Rhythm</div>
+    <div class="programs" id="programs"></div>
+
+    <div class="label">Timing</div>
+    <div class="sliders" id="sliders">
+      <div class="slider">
+        <div class="row"><span>Focus block</span><span class="val"><span id="focusVal">25</span> min</span></div>
+        <input type="range" id="focusSlider" min="10" max="90" step="5" value="25" />
+      </div>
+      <div class="slider">
+        <div class="row"><span>Short break</span><span class="val"><span id="shortVal">5</span> min</span></div>
+        <input type="range" id="shortSlider" min="1" max="15" step="1" value="5" />
+      </div>
+      <div class="slider">
+        <div class="row"><span>Long break (every <span id="everyVal">4</span>th)</span><span class="val"><span id="longVal">15</span> min</span></div>
+        <input type="range" id="longSlider" min="10" max="40" step="5" value="15" />
+      </div>
+      <div class="slider">
+        <div class="row"><span>Blocks before long break</span><span class="val"><span id="roundsVal">4</span></span></div>
+        <input type="range" id="roundsSlider" min="2" max="6" step="1" value="4" />
+      </div>
+      <div class="slider">
+        <div class="row"><span>Total focus blocks</span><span class="val"><span id="totalVal">4</span></span></div>
+        <input type="range" id="totalSlider" min="1" max="12" step="1" value="4" />
+      </div>
+    </div>
+
+    <div class="sliders" style="gap:12px">
+      <label class="toggle"><input type="checkbox" id="moveChk" checked /> Suggest a movement each break</label>
+      <label class="toggle"><input type="checkbox" id="nagChk" checked /> Nag me (re-buzz) until I take the break</label>
+      <label class="toggle"><input type="checkbox" id="soundChk" checked /> Beep + buzz on transitions</label>
+    </div>
+
+    <button class="btn wide" id="startBtn">Start focus · <span id="startLen">–</span></button>
+  </section>
+
+  <!-- RUN -->
+  <section id="run" class="screen">
+    <div class="stage" id="stage">FOCUS</div>
+    <div class="exname" id="exname">–</div>
+    <div class="poseWrap">
+      <svg class="ring" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="46" fill="none" stroke="var(--line)" stroke-width="5"/>
+        <circle id="ringFg" cx="50" cy="50" r="46" fill="none" stroke="var(--accent)" stroke-width="5"
+          stroke-linecap="round" transform="rotate(-90 50 50)"
+          stroke-dasharray="289.02" stroke-dashoffset="0"/>
+      </svg>
+      <div class="glyph" id="glyph">💻</div>
+    </div>
+    <div class="time" id="time">00:00</div>
+    <div class="cue" id="cue"></div>
+    <div class="didWrap"><button class="btn good" id="didBtn" style="display:none; max-width:300px">I did it ✓</button></div>
+    <div class="dots" id="dots"></div>
+    <div class="upnext" id="upnext"></div>
+    <div class="controls">
+      <button class="btn ghost" id="skipBtn">Skip ⏭</button>
+      <button class="btn" id="pauseBtn">Pause ⏸</button>
+      <button class="btn ghost" id="stopBtn">Stop ⏹</button>
+    </div>
+  </section>
+
+  <!-- DONE -->
+  <section id="done" class="screen">
+    <div class="big">✅ Session done</div>
+    <div class="stat" id="doneStat"></div>
+    <div class="card">
+      <div class="t">Nice work</div>
+      <div id="doneMsg">Focus done and your body got its breaks. If your back's still stiff, a real session at <b>Sputnik</b> beats one more block at the desk.</div>
+    </div>
+    <button class="btn" id="againBtn" style="max-width:360px">New session ↻</button>
+  </section>
+
+</main>
+
+<script>
+/* ---------------- Telegram glue (works standalone too) ---------------- */
+const TG = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (TG){ try{ TG.ready(); TG.expand(); applyTheme(TG.themeParams); if(TG.enableClosingConfirmation) TG.enableClosingConfirmation(); }catch(e){} }
+function applyTheme(t){
+  if(!t) return; const r=document.documentElement.style;
+  if(t.bg_color) r.setProperty('--bg', t.bg_color);
+  if(t.secondary_bg_color) r.setProperty('--card', t.secondary_bg_color);
+  if(t.text_color) r.setProperty('--fg', t.text_color);
+  if(t.hint_color) r.setProperty('--muted', t.hint_color);
+  if(t.button_color) r.setProperty('--accent', t.button_color);
+}
+function haptic(kind){
+  try{
+    if(TG && TG.HapticFeedback){
+      if(kind==='tick') TG.HapticFeedback.selectionChanged();
+      else if(kind==='done') TG.HapticFeedback.notificationOccurred('success');
+      else if(kind==='warn') TG.HapticFeedback.notificationOccurred('warning');
+      else TG.HapticFeedback.impactOccurred(kind==='heavy'?'heavy':'medium');
+    } else if(navigator.vibrate){ navigator.vibrate(kind==='heavy'?[140,70,140]:60); }
+  }catch(e){}
+}
+
+/* ---------------- Sound (WebAudio beep) ---------------- */
+let AC=null;
+function beep(freq=880, dur=0.12, type='sine', vol=0.25){
+  if(!soundOn()) return;
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(AC.destination);
+    g.gain.setValueAtTime(vol, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+dur);
+    o.start(); o.stop(AC.currentTime+dur);
+  }catch(e){}
+}
+function chime(){ beep(660,.14); setTimeout(()=>beep(880,.14),150); setTimeout(()=>beep(1100,.2),320); }
+const soundOn = ()=>$('soundChk').checked;
+
+/* ---------------- Break movements (map to coach.py catalog ids) ----------------
+   Short breaks pull quick desk-friendly ones; long breaks can go bigger. */
+const MOVES = {
+  'neck-retraction': {name:"Chin retractions",       glyph:"🙆", secs:60,  long:false,
+    cue:"Slide your head straight back into a double chin, hold 2–3s. 8–10 slow reps — undo the screen-forward posture."},
+  'neck-isometric':  {name:"Neck isometric holds",   glyph:"💪", secs:60,  long:false,
+    cue:"Palm against your still head, press and hold 5–7s each direction. No movement, no sharp pain."},
+  'foam-roll-upper': {name:"Foam roll — upper back",  glyph:"🧻", secs:120, long:false,
+    cue:"Roll the mid-back over the roller, do a few extensions, then lats and between the shoulder blades. Breathe, skip the low back/neck."},
+  'foam-roll-legs':  {name:"Foam roll — legs & hips", glyph:"🦵", secs:120, long:true,
+    cue:"Glutes, hip flexors, IT band/quads, hamstrings, calves. Pause on tender spots and breathe out."},
+  'mobility-spine':  {name:"Spine & hip mobility",    glyph:"🔄", secs:120, long:false,
+    cue:"Cat-cow, open-book rotations, hip circles. Just get the joints moving after sitting."},
+  'breathing-reset': {name:"Box breathing",           glyph:"🌬️", secs:90,  long:false,
+    cue:"In 4, hold 4, out 4, hold 4. A few rounds to reset the head before the next block."},
+  'neck-shishonin':  {name:"Shishonin neck set",      glyph:"🧘", secs:180, long:true,
+    cue:"Run the guided set — Metronome, Spring, Goose, Look-at-sky… slow holds. Great on a long break."},
+  'walk-brisk':      {name:"Get up & walk",           glyph:"🚶", secs:240, long:true,
+    cue:"Stand, leave the desk, walk it out. Even a few minutes resets your back and your focus."},
+};
+const SHORT_POOL = ['neck-retraction','neck-isometric','foam-roll-upper','mobility-spine','breathing-reset'];
+const LONG_POOL  = ['walk-brisk','foam-roll-legs','neck-shishonin','mobility-spine'];
+
+/* ---------------- Presets ---------------- */
+const PROGRAMS = [
+  {id:"classic", emoji:"🍅", name:"Classic Pomodoro", desc:"25 focus · 5 break",
+   focus:25, short:5, long:15, rounds:4, total:4},
+  {id:"deep",    emoji:"🧠", name:"Deep Work",         desc:"50 focus · 10 break",
+   focus:50, short:10, long:20, rounds:3, total:3},
+  {id:"sprints", emoji:"⚡", name:"Short Sprints",     desc:"15 focus · 3 break",
+   focus:15, short:3, long:12, rounds:4, total:6},
+  {id:"custom",  emoji:"🎚️", name:"Custom",            desc:"Set it yourself",
+   focus:25, short:5, long:15, rounds:4, total:4},
+];
+
+/* ---------------- State ---------------- */
+let sel = PROGRAMS[0];
+let cfg = {focus:25, short:5, long:15, rounds:4, total:4};
+let plan = [];              // list of {type:'focus'|'break', long, moveId, secs}
+let idx = 0, remaining = 0, tickTimer = null, paused = false;
+let stats = {focus:0, focusSecs:0, breaks:0, moves:[]};
+let curMoveDone = false, nextNag = 0;
+const $ = id => document.getElementById(id);
+
+/* ---------------- Setup UI ---------------- */
+function renderPrograms(){
+  const c = $('programs'); c.innerHTML='';
+  PROGRAMS.forEach(p=>{
+    const el = document.createElement('div');
+    el.className = 'prog' + (p===sel?' sel':'');
+    const right = p.id==='custom' ? '' : `${p.total} blocks`;
+    el.innerHTML = `<div class="emoji">${p.emoji}</div>
+      <div class="meta"><div class="name">${p.name}</div><div class="desc">${p.desc}</div></div>
+      <div class="len">${right}</div>`;
+    el.onclick = ()=>{ selectProgram(p); haptic('tick'); };
+    c.appendChild(el);
+  });
+}
+function selectProgram(p){
+  sel = p;
+  if(p.id!=='custom'){ cfg = {focus:p.focus, short:p.short, long:p.long, rounds:p.rounds, total:p.total}; syncSlidersFromCfg(); }
+  $('sliders').classList.toggle('locked', p.id!=='custom');
+  renderPrograms(); updateStartLen();
+}
+function syncSlidersFromCfg(){
+  $('focusSlider').value=cfg.focus; $('focusVal').textContent=cfg.focus;
+  $('shortSlider').value=cfg.short; $('shortVal').textContent=cfg.short;
+  $('longSlider').value=cfg.long;   $('longVal').textContent=cfg.long;
+  $('roundsSlider').value=cfg.rounds; $('roundsVal').textContent=cfg.rounds; $('everyVal').textContent=cfg.rounds;
+  $('totalSlider').value=cfg.total; $('totalVal').textContent=cfg.total;
+}
+function bindSlider(id, key, valId, extra){
+  $(id).oninput = e=>{ cfg[key]=+e.target.value; $(valId).textContent=e.target.value; if(extra) extra(); updateStartLen(); };
+}
+bindSlider('focusSlider','focus','focusVal');
+bindSlider('shortSlider','short','shortVal');
+bindSlider('longSlider','long','longVal');
+bindSlider('roundsSlider','rounds','roundsVal', ()=>{ $('everyVal').textContent=cfg.rounds; });
+bindSlider('totalSlider','total','totalVal');
+
+function estimateSecs(){
+  let s=0;
+  for(let i=1;i<=cfg.total;i++){
+    s += cfg.focus*60;
+    if(i<cfg.total){ s += ((i%cfg.rounds===0)?cfg.long:cfg.short)*60; }
+  }
+  return s;
+}
+function fmtMin(s){ const m=Math.round(s/60); if(m<60) return m+'m'; const h=Math.floor(m/60),r=m%60; return r?`${h}h ${r}m`:`${h}h`; }
+function fmtClock(s){ const m=Math.floor(s/60), r=s%60; return String(m).padStart(2,'0')+':'+String(r).padStart(2,'0'); }
+function updateStartLen(){ $('startLen').textContent = `${cfg.total}×${cfg.focus}m · ~${fmtMin(estimateSecs())}`; $('sub').textContent = sel.name; }
+
+/* ---------------- Build plan ---------------- */
+function pick(pool){ return pool[Math.floor(Math.random()*pool.length)]; }
+function buildPlan(){
+  plan=[]; stats={focus:0, focusSecs:0, breaks:0, moves:[]};
+  const wantMove = $('moveChk').checked;
+  for(let i=1;i<=cfg.total;i++){
+    plan.push({type:'focus', long:false, moveId:null, secs:cfg.focus*60});
+    if(i<cfg.total){
+      const isLong = (i%cfg.rounds===0);
+      const moveId = wantMove ? pick(isLong?LONG_POOL:SHORT_POOL) : null;
+      plan.push({type:'break', long:isLong, moveId, secs:(isLong?cfg.long:cfg.short)*60});
+    }
+  }
+}
+function show(screen){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); $(screen).classList.add('active'); }
+
+/* ---------------- Run ---------------- */
+function start(){
+  if(AC){try{AC.resume()}catch(e){}}
+  buildPlan(); idx=0; paused=false; show('run'); loadStep();
+  if(TG){ try{ TG.MainButton.hide(); }catch(e){} }
+}
+function focusBlockNumber(){ return plan.slice(0,idx+1).filter(s=>s.type==='focus').length; }
+function loadStep(){
+  const step = plan[idx];
+  remaining = step.secs; curMoveDone=false;
+  const isBreak = step.type==='break';
+  $('stage').className = 'stage'+(isBreak?' break':'');
+  $('time').className = 'time'+(isBreak?' break':'');
+  $('didBtn').style.display='none';
+
+  if(isBreak){
+    stats.breaks++;
+    $('stage').textContent = step.long ? 'LONG BREAK — MOVE' : 'BREAK — MOVE';
+    const nextFocus = plan[idx+1];
+    if(step.moveId){
+      const m = MOVES[step.moveId];
+      $('exname').textContent = m.name;
+      $('glyph').textContent = m.glyph;
+      $('cue').textContent = m.cue;
+      $('didBtn').style.display='block'; $('didBtn').textContent='I did it ✓';
+    }else{
+      $('exname').textContent = 'Rest';
+      $('glyph').textContent = '☕';
+      $('cue').textContent = 'Stand up, look far away, unclench. Back to it soon.';
+    }
+    // "watch" the break: buzz now, and schedule nags until acknowledged
+    nextNag = $('nagChk').checked ? Math.max(15, Math.floor(step.secs*0.5)) : 0;
+    haptic('warn'); chime();
+  }else{
+    $('stage').textContent = 'FOCUS';
+    $('exname').textContent = `Block ${focusBlockNumber()} of ${cfg.total}`;
+    $('glyph').textContent = '💻';
+    $('cue').textContent = 'Heads down. One task, no tabs. I\'ll pull you out for a break.';
+    haptic('heavy'); beep(990,.16,'sine');
+  }
+  renderDots();
+  $('upnext').innerHTML = isBreak && plan[idx+1]
+    ? `Up next: <b>Block ${focusBlockNumber()+1}</b>`
+    : `Block <b>${focusBlockNumber()}</b> / ${cfg.total}`;
+  updateRing(1); render();
+  clearInterval(tickTimer); tickTimer=setInterval(tick, 1000);
+}
+function tick(){
+  if(paused) return;
+  remaining--;
+  if(remaining<=0){ stepComplete(); return; }
+  const step=plan[idx];
+  if(step.type==='break' && step.moveId && !curMoveDone && nextNag>0 && remaining<=(step.secs-nextNag)){
+    haptic('warn'); beep(500,.12,'square',.3);
+    nextNag += Math.max(15, Math.floor(step.secs*0.35));   // space out subsequent nags
+  }
+  if(step.type!=='break' || !step.moveId){
+    if(remaining<=3){ beep(1200,.09,'square',.3); haptic('tick'); }
+  }
+  render();
+}
+function stepComplete(){
+  const step=plan[idx];
+  if(step.type==='focus'){ stats.focus++; stats.focusSecs += step.secs; }
+  next();
+}
+function render(){
+  $('time').textContent = fmtClock(Math.max(0,remaining));
+  const step=plan[idx]; updateRing(remaining/step.secs);
+}
+function updateRing(frac){
+  const C=289.02; $('ringFg').style.strokeDashoffset = String(C*(1-Math.max(0,Math.min(1,frac))));
+  $('ringFg').setAttribute('stroke', plan[idx] && plan[idx].type==='break' ? 'var(--accent2)' : 'var(--accent)');
+}
+function next(){
+  clearInterval(tickTimer);
+  if(idx>=plan.length-1){ finish(); return; }
+  idx++; loadStep();
+}
+function renderDots(){
+  const total = cfg.total;
+  const done = plan.slice(0,idx).filter(s=>s.type==='focus').length;
+  const curFocus = plan[idx] && plan[idx].type==='focus';
+  const d=$('dots'); d.innerHTML='';
+  for(let i=0;i<total;i++){
+    const dot=document.createElement('div'); dot.className='dot';
+    if(i<done) dot.classList.add('done');
+    else if(i===done && curFocus) dot.classList.add('cur');
+    d.appendChild(dot);
+  }
+}
+function markDone(){
+  const step=plan[idx];
+  if(step.type!=='break' || !step.moveId || curMoveDone) return;
+  curMoveDone=true; stats.moves.push(step.moveId);
+  $('didBtn').textContent='Nice ✓'; $('didBtn').disabled=true;
+  setTimeout(()=>{ $('didBtn').disabled=false; }, 400);
+  haptic('done'); beep(880,.14);
+}
+function finish(){
+  clearInterval(tickTimer); show('done'); haptic('done'); beep(660,.5,'sine',.3);
+  const uniqMoves = [...new Set(stats.moves)];
+  $('doneStat').textContent =
+    `${stats.focus} focus block${stats.focus===1?'':'s'} · ${fmtMin(stats.focusSecs)} focused · ${stats.moves.length} break move${stats.moves.length===1?'':'s'}`;
+  if(stats.moves.length===0){
+    $('doneMsg').innerHTML = 'You focused well — but skipped the movement breaks. Next time let the break prompts pull you up; your neck will thank you.';
+  }
+  // Report to the bot so coach.py can log the movements you actually did.
+  try{
+    if(TG) TG.sendData(JSON.stringify({
+      event:'work_done',
+      focus_blocks: stats.focus,
+      focus_secs: stats.focusSecs,
+      breaks: stats.breaks,
+      moves: stats.moves,        // catalog ids, in order done (may repeat)
+    }));
+  }catch(e){}
+}
+
+/* controls */
+$('startBtn').onclick = start;
+$('didBtn').onclick   = markDone;
+$('pauseBtn').onclick = ()=>{ paused=!paused; $('pauseBtn').textContent = paused?'Resume ▶':'Pause ⏸'; haptic('tick'); };
+$('skipBtn').onclick  = ()=>{ stepComplete(); };
+$('stopBtn').onclick  = ()=>{ clearInterval(tickTimer); if(stats.focus>0){ finish(); } else { show('setup'); } };
+$('againBtn').onclick = ()=>{ show('setup'); };
+
+/* clock */
+setInterval(()=>{ const d=new Date(); $('clock').textContent = d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }, 1000);
+
+selectProgram(PROGRAMS[0]);
+</script>
+</body>
+</html>
