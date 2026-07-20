@@ -3,88 +3,125 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-<meta name="theme-color" content="#0f1420" />
+<meta name="theme-color" content="#0a0a0b" />
 <title>Plank Coach</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0f1420; --card:#182131; --card2:#1e293b; --fg:#eaf0fb; --muted:#93a2bd;
-    --accent:#4ea1ff; --accent2:#6ee7b7; --warn:#fbbf24; --danger:#fb7185; --line:#26324a;
+    --bg:#0a0a0b; --surface:#141416; --surface-2:#1b1b1f;
+    --line:#26262b; --line-2:#34343a;
+    --fg:#fafafa; --muted:#a1a1aa; --faint:#6f6f78;
+    --accent:#f5a524; --accent-ink:#1c1304; --accent-soft:rgba(245,165,36,.13);
+    --rest:#34d399; --rest-ink:#05271a; --rest-soft:rgba(52,211,153,.12);
+    --r-lg:22px; --r-md:15px; --r-pill:999px;
+    --ease:cubic-bezier(.23,1,.32,1);
+    --pad: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{margin:0; height:100%}
   body{
     background:var(--bg); color:var(--fg);
-    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    display:flex; flex-direction:column; min-height:100dvh;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    font:400 16px/1.45 "Geist",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; letter-spacing:-0.01em;
+    display:flex; flex-direction:column; min-height:100dvh; padding:var(--pad);
   }
-  header{padding:14px 18px 6px; display:flex; align-items:center; justify-content:space-between}
-  header h1{font-size:18px; margin:0; letter-spacing:.2px}
-  header .sub{color:var(--muted); font-size:12px}
-  main{flex:1; display:flex; flex-direction:column; padding:8px 16px 16px; gap:12px}
+  ::selection{background:var(--accent-soft)}
+  button{font-family:inherit; letter-spacing:-0.01em}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px}
 
-  /* ---- setup screen ---- */
-  .screen{display:none; flex-direction:column; gap:12px; flex:1}
+  header{padding:20px 22px 4px; display:flex; align-items:baseline; justify-content:space-between}
+  header h1{font-size:19px; font-weight:700; margin:0; letter-spacing:-0.02em}
+  header .sub{color:var(--faint); font-size:13px; font-weight:500}
+  .clock{color:var(--faint); font:600 13px/1 "Geist Mono",monospace; font-variant-numeric:tabular-nums}
+  main{flex:1; display:flex; flex-direction:column; padding:12px 18px 20px; gap:14px}
+
+  .screen{display:none; flex-direction:column; gap:14px; flex:1}
   .screen.active{display:flex}
-  .label{color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.6px; margin:2px 2px}
-  .programs{display:flex; flex-direction:column; gap:10px}
-  .prog{
-    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px;
-    display:flex; align-items:center; gap:14px; cursor:pointer; transition:.15s;
-  }
-  .prog.sel{border-color:var(--accent); background:var(--card2)}
-  .prog .emoji{font-size:26px}
-  .prog .meta{flex:1}
-  .prog .meta .name{font-weight:600}
-  .prog .meta .desc{color:var(--muted); font-size:13px}
-  .prog .len{color:var(--accent2); font-size:13px; font-weight:600; white-space:nowrap}
+  .label{color:var(--faint); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; margin:4px 2px 0}
 
-  .sliders{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; display:flex; flex-direction:column; gap:16px}
-  .slider .row{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px}
-  .slider .val{font-weight:700; color:var(--accent)}
-  input[type=range]{width:100%; accent-color:var(--accent)}
-  .toggle{display:flex; align-items:center; gap:10px; color:var(--muted); font-size:14px}
-  .toggle input{width:20px; height:20px; accent-color:var(--accent)}
+  .programs{display:flex; flex-direction:column; gap:9px}
+  .prog{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg);
+    padding:15px 17px; display:flex; align-items:center; gap:15px; cursor:pointer;
+    transition:border-color .18s var(--ease), background .18s var(--ease), transform .12s var(--ease);
+    text-align:left; width:100%;
+  }
+  .prog:active{transform:scale(.99)}
+  .prog.sel{border-color:var(--accent); background:var(--surface-2)}
+  .prog .idx{font:700 20px/1 "Geist Mono",monospace; color:var(--faint); width:20px; text-align:center; transition:color .18s}
+  .prog.sel .idx{color:var(--accent)}
+  .prog .meta{flex:1; min-width:0}
+  .prog .name{font-weight:600; font-size:16px}
+  .prog .desc{color:var(--muted); font-size:13px; margin-top:1px}
+  .prog .tag{color:var(--faint); font:600 12px/1 "Geist Mono",monospace; white-space:nowrap}
+
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:16px 18px; display:flex; flex-direction:column; gap:18px}
+  .slider .row{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px}
+  .slider .row span:first-child{font-size:14px; color:var(--fg); font-weight:500}
+  .slider .val{font:700 14px/1 "Geist Mono",monospace; color:var(--accent); font-variant-numeric:tabular-nums}
+  input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:var(--r-pill); background:var(--line-2); outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--accent); border:3px solid var(--bg); box-shadow:0 0 0 1px var(--accent); cursor:pointer; transition:transform .12s var(--ease)}
+  input[type=range]:active::-webkit-slider-thumb{transform:scale(1.15)}
+  input[type=range]::-moz-range-thumb{width:17px; height:17px; border-radius:50%; background:var(--accent); border:3px solid var(--bg); cursor:pointer}
+
+  .switch{display:flex; align-items:center; gap:12px; cursor:pointer; font-size:14px; color:var(--fg); user-select:none}
+  .switch input{position:absolute; opacity:0; width:0; height:0}
+  .track{position:relative; width:42px; height:25px; border-radius:var(--r-pill); background:var(--line-2); flex:none; transition:background .2s var(--ease)}
+  .track::after{content:""; position:absolute; top:3px; left:3px; width:19px; height:19px; border-radius:50%; background:#fff; transition:transform .2s var(--ease)}
+  .switch input:checked + .track{background:var(--accent)}
+  .switch input:checked + .track::after{transform:translateX(17px)}
+  .switch input:focus-visible + .track{outline:2px solid var(--accent); outline-offset:2px}
 
   .btn{
-    border:none; border-radius:14px; padding:15px; font-size:16px; font-weight:700; color:#04122b;
-    background:linear-gradient(180deg,var(--accent),#2f7fe0); cursor:pointer; width:100%;
+    border:none; border-radius:var(--r-md); padding:16px; font-size:16px; font-weight:600; color:var(--accent-ink);
+    background:var(--accent); cursor:pointer; width:100%; transition:transform .12s var(--ease), filter .15s, opacity .15s;
   }
-  .btn.ghost{background:transparent; color:var(--fg); border:1px solid var(--line)}
+  .btn:active{transform:scale(.975)}
+  .btn:disabled{opacity:.5; cursor:default}
+  .btn.ghost{background:transparent; color:var(--fg); border:1px solid var(--line-2)}
+  .btn.ghost:active{background:var(--surface)}
   .btn.wide{margin-top:auto}
+  .btn .k{font:700 13px/1 "Geist Mono",monospace; opacity:.7; margin-left:2px}
 
-  /* ---- run screen ---- */
-  #run{align-items:center; text-align:center}
-  .stage{color:var(--muted); font-size:13px; letter-spacing:2px; text-transform:uppercase}
-  .exname{font-size:24px; font-weight:700; margin:2px 0 0}
-  .poseWrap{position:relative; width:min(78vw,320px); aspect-ratio:1/1; margin:6px auto 0}
-  .ring{position:absolute; inset:0}
-  .poseSvg{position:absolute; inset:14%; display:flex; align-items:center; justify-content:center}
+  #run{align-items:center; text-align:center; gap:12px}
+  .stage{font:600 12px/1 "Geist Mono",monospace; letter-spacing:.16em; text-transform:uppercase; color:var(--faint)}
+  .stage.break{color:var(--rest)}
+  .exname{font-size:22px; font-weight:700; letter-spacing:-0.02em; margin:0}
+  .poseWrap{position:relative; width:min(76vw,300px); aspect-ratio:1/1; margin:2px auto}
+  .ring{position:absolute; inset:0; transform:rotate(-90deg)}
+  .ring .bg{stroke:var(--line)}
+  #ringFg{transition:stroke .3s}
+  .poseSvg{position:absolute; inset:15%; display:flex; align-items:center; justify-content:center}
   .poseSvg svg{width:100%; height:100%}
-  .time{font-size:52px; font-weight:800; font-variant-numeric:tabular-nums; margin-top:6px}
-  .time.break{color:var(--accent2)}
-  .cue{color:var(--muted); font-size:14px; min-height:2.6em; padding:0 8px; max-width:340px}
-  .upnext{color:var(--muted); font-size:13px}
-  .upnext b{color:var(--fg)}
-  .controls{display:flex; gap:10px; width:100%; max-width:420px; margin-top:auto}
-  .controls .btn{flex:1}
-  .dots{display:flex; gap:5px; flex-wrap:wrap; justify-content:center; max-width:340px}
-  .dot{width:8px; height:8px; border-radius:50%; background:var(--line)}
-  .dot.done{background:var(--accent2)} .dot.cur{background:var(--accent); transform:scale(1.35)}
+  .time{font:700 60px/1 "Geist Mono",monospace; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; margin:0}
+  .time.break{color:var(--rest)}
+  .cue{color:var(--muted); font-size:14px; line-height:1.5; min-height:2.9em; padding:0 6px; max-width:360px}
+  .dots{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; max-width:320px}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--line-2); transition:background .2s var(--ease), transform .2s var(--ease)}
+  .dot.done{background:var(--rest)} .dot.cur{background:var(--accent); transform:scale(1.4)}
+  .upnext{color:var(--faint); font-size:13px; font-weight:500}
+  .upnext b{color:var(--fg); font-weight:600}
+  .controls{display:flex; gap:9px; width:100%; max-width:440px; margin-top:auto}
+  .controls .btn{flex:1; padding:15px 10px; font-size:15px}
 
-  /* ---- done screen ---- */
-  #done{align-items:center; text-align:center; justify-content:center; gap:16px}
-  #done .big{font-size:40px}
-  #done .stat{color:var(--muted)}
-  .climb{background:linear-gradient(180deg,#20304a,#182131); border:1px solid var(--line); border-radius:16px; padding:16px; max-width:360px}
-  .climb .t{font-weight:700; color:var(--accent2)}
+  #done{align-items:center; text-align:center; justify-content:center; gap:18px}
+  #done .big{font-size:26px; font-weight:700; letter-spacing:-0.02em}
+  #done .stat{color:var(--muted); font:600 14px/1.5 "Geist Mono",monospace; font-variant-numeric:tabular-nums}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:18px 20px; max-width:360px; text-align:left}
+  .card .t{font-weight:600; color:var(--rest); margin-bottom:5px}
+  .card div:last-child{color:var(--muted); font-size:14px; line-height:1.5}
+  .card b{color:var(--fg); font-weight:600}
+
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
 </style>
 </head>
 <body>
 <header>
-  <div><h1>🪵 Plank Coach</h1><div class="sub" id="sub">Pick a program</div></div>
-  <div class="sub" id="clock"></div>
+  <div><h1>Plank Coach</h1><div class="sub" id="sub">Pick a program</div></div>
+  <div class="clock" id="clock"></div>
 </header>
 <main>
 
@@ -94,31 +131,30 @@
     <div class="programs" id="programs"></div>
 
     <div class="label">Timing</div>
-    <div class="sliders">
+    <div class="panel">
       <div class="slider">
         <div class="row"><span>Break between holds</span><span class="val"><span id="breakVal">20</span>s</span></div>
-        <input type="range" id="breakSlider" min="5" max="60" step="5" value="20" />
+        <input type="range" id="breakSlider" min="5" max="60" step="5" value="20" aria-label="Break seconds" />
       </div>
       <div class="slider">
         <div class="row"><span>Hold length</span><span class="val"><span id="workVal">100</span>%</span></div>
-        <input type="range" id="workSlider" min="50" max="150" step="10" value="100" />
+        <input type="range" id="workSlider" min="50" max="150" step="10" value="100" aria-label="Hold length percent" />
       </div>
-      <label class="toggle"><input type="checkbox" id="soundChk" checked /> Beep + buzz on transitions</label>
+      <label class="switch"><input type="checkbox" id="soundChk" checked /><span class="track"></span><span>Beep and buzz on transitions</span></label>
     </div>
 
-    <button class="btn wide" id="startBtn">Start · <span id="startLen">–</span></button>
+    <button class="btn wide" id="startBtn">Start <span class="k" id="startLen"></span></button>
   </section>
 
   <!-- RUN -->
   <section id="run" class="screen">
     <div class="stage" id="stage">HOLD</div>
-    <div class="exname" id="exname">–</div>
+    <div class="exname" id="exname"></div>
     <div class="poseWrap">
       <svg class="ring" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r="46" fill="none" stroke="var(--line)" stroke-width="5"/>
-        <circle id="ringFg" cx="50" cy="50" r="46" fill="none" stroke="var(--accent)" stroke-width="5"
-          stroke-linecap="round" transform="rotate(-90 50 50)"
-          stroke-dasharray="289.02" stroke-dashoffset="0"/>
+        <circle class="bg" cx="50" cy="50" r="46" fill="none" stroke-width="4"/>
+        <circle id="ringFg" cx="50" cy="50" r="46" fill="none" stroke="var(--accent)" stroke-width="4"
+          stroke-linecap="round" stroke-dasharray="289.02" stroke-dashoffset="0"/>
       </svg>
       <div class="poseSvg" id="pose"></div>
     </div>
@@ -127,37 +163,29 @@
     <div class="dots" id="dots"></div>
     <div class="upnext" id="upnext"></div>
     <div class="controls">
-      <button class="btn ghost" id="skipBtn">Skip ⏭</button>
-      <button class="btn" id="pauseBtn">Pause ⏸</button>
-      <button class="btn ghost" id="stopBtn">Stop ⏹</button>
+      <button class="btn ghost" id="skipBtn">Skip</button>
+      <button class="btn" id="pauseBtn">Pause</button>
+      <button class="btn ghost" id="stopBtn">Stop</button>
     </div>
   </section>
 
   <!-- DONE -->
   <section id="done" class="screen">
-    <div class="big">💪 Done!</div>
+    <div class="big">Done</div>
     <div class="stat" id="doneStat"></div>
-    <div class="climb">
+    <div class="card">
       <div class="t">Feeling strong?</div>
-      <div>That core carries over to the wall. Consider a session at <b>Sputnik</b> — bouldering beats another day at the desk.</div>
+      <div>That core carries over to the wall. Consider a session at <b>Sputnik</b>. Bouldering beats another day at the desk.</div>
     </div>
-    <button class="btn" id="againBtn" style="max-width:360px">Do another ↻</button>
+    <button class="btn" id="againBtn" style="max-width:360px">Do another</button>
   </section>
 
 </main>
 
 <script>
-/* ---------------- Telegram glue (works standalone too) ---------------- */
+/* ---------------- Telegram glue ---------------- */
 const TG = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-if (TG){ try{ TG.ready(); TG.expand(); applyTheme(TG.themeParams); }catch(e){} }
-function applyTheme(t){
-  if(!t) return; const r=document.documentElement.style;
-  if(t.bg_color) r.setProperty('--bg', t.bg_color);
-  if(t.secondary_bg_color) r.setProperty('--card', t.secondary_bg_color);
-  if(t.text_color) r.setProperty('--fg', t.text_color);
-  if(t.hint_color) r.setProperty('--muted', t.hint_color);
-  if(t.button_color) r.setProperty('--accent', t.button_color);
-}
+if (TG){ try{ TG.ready(); TG.expand(); }catch(e){} }
 function haptic(kind){
   try{
     if(TG && TG.HapticFeedback){
@@ -168,7 +196,7 @@ function haptic(kind){
   }catch(e){}
 }
 
-/* ---------------- Sound (WebAudio beep) ---------------- */
+/* ---------------- Sound ---------------- */
 let AC=null;
 function beep(freq=880, dur=0.12, type='sine', vol=0.25){
   if(!soundOn()) return;
@@ -181,45 +209,45 @@ function beep(freq=880, dur=0.12, type='sine', vol=0.25){
     o.start(); o.stop(AC.currentTime+dur);
   }catch(e){}
 }
-const soundOn = ()=>document.getElementById('soundChk').checked;
+const soundOn = ()=>$('soundChk').checked;
 
-/* ---------------- Plank pose SVGs (simple side-view line figures) ---------------- */
+/* ---------------- Plank pose SVGs ---------------- */
 const S = (inner)=>`<svg viewBox="0 0 200 200" fill="none" stroke="var(--accent)" stroke-width="7"
   stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
-const mat = `<line x1="18" y1="170" x2="182" y2="170" stroke="var(--line)" stroke-width="6"/>`;
+const mat = `<line x1="18" y1="170" x2="182" y2="170" stroke="var(--line-2)" stroke-width="6"/>`;
 const POSE = {
   forearm: S(`${mat}<circle cx="46" cy="96" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="58" y1="104" x2="150" y2="150"/> <!-- back -->
-    <line x1="150" y1="150" x2="182" y2="168"/> <!-- legs -->
-    <line x1="60" y1="104" x2="52" y2="150"/> <!-- upper arm -->
-    <line x1="52" y1="150" x2="96" y2="150"/> <!-- forearm on ground -->`),
+    <line x1="58" y1="104" x2="150" y2="150"/>
+    <line x1="150" y1="150" x2="182" y2="168"/>
+    <line x1="60" y1="104" x2="52" y2="150"/>
+    <line x1="52" y1="150" x2="96" y2="150"/>`),
   high: S(`${mat}<circle cx="44" cy="86" r="13" fill="var(--accent)" stroke="none"/>
     <line x1="56" y1="94" x2="150" y2="150"/>
     <line x1="150" y1="150" x2="184" y2="168"/>
     <line x1="58" y1="96" x2="60" y2="152"/>`),
   side: S(`${mat}<circle cx="150" cy="70" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="140" y1="78" x2="60" y2="150"/> <!-- torso to feet -->
+    <line x1="140" y1="78" x2="60" y2="150"/>
     <line x1="60" y1="150" x2="40" y2="168"/>
-    <line x1="90" y1="120" x2="92" y2="168"/> <!-- support arm down -->
-    <line x1="92" y1="118" x2="96" y2="70"/> <!-- top arm up -->`),
+    <line x1="90" y1="120" x2="92" y2="168"/>
+    <line x1="92" y1="118" x2="96" y2="70"/>`),
   taps: S(`${mat}<circle cx="44" cy="86" r="13" fill="var(--accent)" stroke="none"/>
     <line x1="56" y1="94" x2="150" y2="150"/>
     <line x1="150" y1="150" x2="184" y2="168"/>
     <line x1="150" y1="150" x2="150" y2="168"/>
-    <line x1="60" y1="98" x2="66" y2="150"/> <!-- one arm down -->
-    <line x1="70" y1="100" x2="40" y2="120"/> <!-- other arm tapping shoulder -->`),
+    <line x1="60" y1="98" x2="66" y2="150"/>
+    <line x1="70" y1="100" x2="40" y2="120"/>`),
   leglift: S(`${mat}<circle cx="46" cy="98" r="13" fill="var(--accent)" stroke="none"/>
     <line x1="58" y1="106" x2="150" y2="150"/>
-    <line x1="150" y1="150" x2="184" y2="168"/> <!-- grounded leg -->
-    <line x1="150" y1="150" x2="188" y2="126"/> <!-- lifted leg -->
+    <line x1="150" y1="150" x2="184" y2="168"/>
+    <line x1="150" y1="150" x2="188" y2="126"/>
     <line x1="60" y1="106" x2="52" y2="150"/><line x1="52" y1="150" x2="96" y2="150"/>`),
   updown: S(`${mat}<circle cx="45" cy="91" r="13" fill="var(--accent)" stroke="none"/>
     <line x1="57" y1="99" x2="150" y2="150"/>
     <line x1="150" y1="150" x2="184" y2="168"/>
     <line x1="60" y1="101" x2="56" y2="150"/>
-    <path d="M40 150 q-14 -18 0 -36" stroke="var(--accent2)" stroke-width="5"/> <!-- up/down arrow -->`),
+    <path d="M40 150 q-14 -18 0 -36" stroke="var(--rest)" stroke-width="5"/>`),
   reverse: S(`${mat}<circle cx="44" cy="120" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="56" y1="116" x2="150" y2="86"/> <!-- body facing up -->
+    <line x1="56" y1="116" x2="150" y2="86"/>
     <line x1="150" y1="86" x2="184" y2="150"/>
     <line x1="150" y1="86" x2="150" y2="168"/>
     <line x1="58" y1="118" x2="60" y2="168"/>`),
@@ -227,15 +255,15 @@ const POSE = {
     <line x1="58" y1="100" x2="150" y2="150"/>
     <line x1="150" y1="150" x2="184" y2="168"/>
     <line x1="60" y1="100" x2="58" y2="152"/>
-    <path d="M150 150 q-30 -6 -44 -30" stroke="var(--accent2)" stroke-width="6"/> <!-- knee to elbow -->`),
+    <path d="M150 150 q-30 -6 -44 -30" stroke="var(--rest)" stroke-width="6"/>`),
 };
 
 /* ---------------- Exercises & programs ---------------- */
 const EX = {
   forearm:  {name:"Forearm plank",       pose:"forearm", cue:"Elbows under shoulders, body one line, brace the core, breathe."},
   high:     {name:"High plank",          pose:"high",    cue:"Hands under shoulders, push the floor away, ribs down."},
-  side_l:   {name:"Side plank — left",   pose:"side",    cue:"On left forearm, stack feet, lift hips, reach tall."},
-  side_r:   {name:"Side plank — right",  pose:"side",    cue:"On right forearm, stack feet, lift hips, reach tall."},
+  side_l:   {name:"Side plank, left",    pose:"side",    cue:"On left forearm, stack feet, lift hips, reach tall."},
+  side_r:   {name:"Side plank, right",   pose:"side",    cue:"On right forearm, stack feet, lift hips, reach tall."},
   taps:     {name:"Shoulder taps",       pose:"taps",    cue:"High plank, tap opposite shoulder, keep hips dead still."},
   leglift:  {name:"Plank leg lifts",     pose:"leglift", cue:"Forearm plank, lift one leg a hand's height, alternate."},
   updown:   {name:"Plank up-downs",      pose:"updown",  cue:"Forearm to high plank and back, control every step."},
@@ -243,31 +271,31 @@ const EX = {
   knee:     {name:"Knee-to-elbow",       pose:"knee",    cue:"From plank drive knee to same elbow, alternate slow."},
 };
 const PROGRAMS = [
-  {id:"beginner", emoji:"🌱", name:"Beginner", desc:"Ease in — short holds",
+  {id:"beginner", name:"Beginner", desc:"Ease in, short holds",
    steps:[["forearm",20],["high",20],["side_l",15],["side_r",15],["forearm",25]]},
-  {id:"standard", emoji:"🔵", name:"Standard", desc:"The daily core builder",
+  {id:"standard", name:"Standard", desc:"The daily core builder",
    steps:[["forearm",30],["high",30],["taps",30],["side_l",25],["side_r",25],["leglift",30],["forearm",40]]},
-  {id:"circuit",  emoji:"🔥", name:"Variation Circuit", desc:"All the planks",
+  {id:"circuit",  name:"Variation Circuit", desc:"All the planks",
    steps:[["forearm",30],["high",30],["taps",30],["updown",30],["side_l",25],["side_r",25],["leglift",30],["knee",30],["reverse",25],["forearm",40]]},
 ];
 
 /* ---------------- State ---------------- */
-let sel = PROGRAMS[1];        // default Standard
+let sel = PROGRAMS[1];
 let breakSecs = 20, workMul = 1.0;
-let plan = [];                // built list of {type:'work'|'break', ex, secs}
+let plan = [];
 let idx = 0, remaining = 0, tickTimer = null, paused = false;
+const $ = id => document.getElementById(id);
 
 /* ---------------- Setup UI ---------------- */
-const $ = id => document.getElementById(id);
 function renderPrograms(){
   const c = $('programs'); c.innerHTML='';
-  PROGRAMS.forEach(p=>{
+  PROGRAMS.forEach((p,i)=>{
     const total = estimate(p);
-    const el = document.createElement('div');
+    const el = document.createElement('button');
     el.className = 'prog' + (p===sel?' sel':'');
-    el.innerHTML = `<div class="emoji">${p.emoji}</div>
+    el.innerHTML = `<div class="idx">${i+1}</div>
       <div class="meta"><div class="name">${p.name}</div><div class="desc">${p.desc} · ${p.steps.length} holds</div></div>
-      <div class="len">${fmtMin(total)}</div>`;
+      <div class="tag">${fmtMin(total)}</div>`;
     el.onclick = ()=>{ sel=p; renderPrograms(); updateStartLen(); haptic('tick'); };
     c.appendChild(el);
   });
@@ -299,9 +327,9 @@ function loadStep(){
   const step = plan[idx];
   remaining = step.secs;
   const isBreak = step.type==='break';
+  $('stage').className = 'stage'+(isBreak?' break':'');
   $('stage').textContent = isBreak ? 'BREAK' : 'HOLD';
   $('time').className = 'time'+(isBreak?' break':'');
-  const nextWork = plan.slice(idx).find(s=>s.type==='work' && s!==step);
   if(isBreak){
     $('exname').textContent = 'Rest';
     $('pose').innerHTML = '';
@@ -314,17 +342,17 @@ function loadStep(){
     $('cue').textContent = e.cue;
   }
   const workLeft = plan.slice(idx).filter(s=>s.type==='work').length;
-  $('upnext').innerHTML = `Hold <b>${sel.steps.length - workLeft + (isBreak?0:1)}</b> / ${sel.steps.length}`;
+  $('upnext').innerHTML = `Hold <b>${sel.steps.length - workLeft + (isBreak?0:1)}</b> of ${sel.steps.length}`;
   renderDots();
   updateRing(1); render();
-  haptic(isBreak?'medium':'heavy'); beep(isBreak?520:990, .14, 'sine');
+  haptic(isBreak?'medium':'heavy'); beep(isBreak?523:784, .15, 'sine');
   clearInterval(tickTimer); tickTimer=setInterval(tick, 1000);
 }
 function tick(){
   if(paused) return;
   remaining--;
   if(remaining<=0){ next(); return; }
-  if(remaining<=3){ beep(1200,.09,'square',.3); haptic('tick'); }
+  if(remaining<=3){ beep(1046,.09,'sine',.28); haptic('tick'); }
   render();
 }
 function render(){
@@ -333,6 +361,7 @@ function render(){
 }
 function updateRing(frac){
   const C=289.02; $('ringFg').style.strokeDashoffset = String(C*(1-Math.max(0,Math.min(1,frac))));
+  $('ringFg').setAttribute('stroke', plan[idx] && plan[idx].type==='break' ? 'var(--rest)' : 'var(--accent)');
 }
 function next(){
   clearInterval(tickTimer);
@@ -351,16 +380,15 @@ function renderDots(){
   }
 }
 function finish(){
-  clearInterval(tickTimer); show('done'); haptic('done'); beep(660,.5,'sine',.3);
+  clearInterval(tickTimer); show('done'); haptic('done'); beep(587,.16); setTimeout(()=>beep(880,.3),150);
   const totalHold = sel.steps.reduce((a,s)=>a+Math.round(s[1]*workMul),0);
   $('doneStat').textContent = `${sel.name} · ${sel.steps.length} holds · ${fmtMin(totalHold)} under tension`;
-  // Tell the bot (if we ever add server logging), and let Telegram know we can close.
   try{ if(TG) TG.sendData(JSON.stringify({event:'plank_done', program:sel.id, holds:sel.steps.length, hold_secs:totalHold})); }catch(e){}
 }
 
 /* controls */
 $('startBtn').onclick = ()=>{ if(AC){try{AC.resume()}catch(e){}} start(); };
-$('pauseBtn').onclick = ()=>{ paused=!paused; $('pauseBtn').textContent = paused?'Resume ▶':'Pause ⏸'; haptic('tick'); };
+$('pauseBtn').onclick = ()=>{ paused=!paused; $('pauseBtn').textContent = paused?'Resume':'Pause'; haptic('tick'); };
 $('skipBtn').onclick  = ()=>{ next(); };
 $('stopBtn').onclick  = ()=>{ clearInterval(tickTimer); show('setup'); };
 $('againBtn').onclick = ()=>{ show('setup'); };
