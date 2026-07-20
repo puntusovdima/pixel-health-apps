@@ -215,47 +215,71 @@ const soundOn = ()=>$('soundChk').checked;
 const S = (inner)=>`<svg viewBox="0 0 200 200" fill="none" stroke="var(--accent)" stroke-width="7"
   stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 const mat = `<line x1="18" y1="170" x2="182" y2="170" stroke="var(--line-2)" stroke-width="6"/>`;
+// Side view, figure faces left (head at upper-left, feet lower-right). Mat at y=170.
+// The plank body is ONE straight line: head → shoulder → hip → ankle. Support
+// arm(s) drop from the shoulder to the mat. Head sits in line with the spine.
 const POSE = {
-  forearm: S(`${mat}<circle cx="46" cy="96" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="58" y1="104" x2="150" y2="150"/>
-    <line x1="150" y1="150" x2="182" y2="168"/>
-    <line x1="60" y1="104" x2="52" y2="150"/>
-    <line x1="52" y1="150" x2="96" y2="150"/>`),
-  high: S(`${mat}<circle cx="44" cy="86" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="56" y1="94" x2="150" y2="150"/>
-    <line x1="150" y1="150" x2="184" y2="168"/>
-    <line x1="58" y1="96" x2="60" y2="152"/>`),
-  side: S(`${mat}<circle cx="150" cy="70" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="140" y1="78" x2="60" y2="150"/>
-    <line x1="60" y1="150" x2="40" y2="168"/>
-    <line x1="90" y1="120" x2="92" y2="168"/>
-    <line x1="92" y1="118" x2="96" y2="70"/>`),
-  taps: S(`${mat}<circle cx="44" cy="86" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="56" y1="94" x2="150" y2="150"/>
-    <line x1="150" y1="150" x2="184" y2="168"/>
-    <line x1="150" y1="150" x2="150" y2="168"/>
-    <line x1="60" y1="98" x2="66" y2="150"/>
-    <line x1="70" y1="100" x2="40" y2="120"/>`),
-  leglift: S(`${mat}<circle cx="46" cy="98" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="58" y1="106" x2="150" y2="150"/>
-    <line x1="150" y1="150" x2="184" y2="168"/>
-    <line x1="150" y1="150" x2="188" y2="126"/>
-    <line x1="60" y1="106" x2="52" y2="150"/><line x1="52" y1="150" x2="96" y2="150"/>`),
-  updown: S(`${mat}<circle cx="45" cy="91" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="57" y1="99" x2="150" y2="150"/>
-    <line x1="150" y1="150" x2="184" y2="168"/>
-    <line x1="60" y1="101" x2="56" y2="150"/>
-    <path d="M40 150 q-14 -18 0 -36" stroke="var(--rest)" stroke-width="5"/>`),
-  reverse: S(`${mat}<circle cx="44" cy="120" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="56" y1="116" x2="150" y2="86"/>
-    <line x1="150" y1="86" x2="184" y2="150"/>
-    <line x1="150" y1="86" x2="150" y2="168"/>
-    <line x1="58" y1="118" x2="60" y2="168"/>`),
-  knee: S(`${mat}<circle cx="46" cy="92" r="13" fill="var(--accent)" stroke="none"/>
-    <line x1="58" y1="100" x2="150" y2="150"/>
-    <line x1="150" y1="150" x2="184" y2="168"/>
-    <line x1="60" y1="100" x2="58" y2="152"/>
-    <path d="M150 150 q-30 -6 -44 -30" stroke="var(--rest)" stroke-width="6"/>`),
+  // forearm plank: straight body, upper arm vertical to elbow, forearm flat on mat
+  forearm: S(`${mat}<circle cx="42" cy="100" r="11" fill="var(--accent)" stroke="none"/>
+    <line x1="51" y1="105" x2="62" y2="110"/>
+    <polyline points="62,110 120,140 174,166"/>
+    <line x1="174" y1="166" x2="185" y2="169"/>
+    <line x1="62" y1="110" x2="60" y2="168"/>
+    <line x1="60" y1="168" x2="33" y2="170"/>`),
+  // high plank: same straight body, arms fully extended to the mat
+  high: S(`${mat}<circle cx="45" cy="85" r="11" fill="var(--accent)" stroke="none"/>
+    <line x1="54" y1="90" x2="64" y2="96"/>
+    <polyline points="64,96 122,128 176,160"/>
+    <line x1="176" y1="160" x2="187" y2="163"/>
+    <line x1="64" y1="96" x2="66" y2="170"/>`),
+  // side plank: straight body rising to the head, support arm down, top arm up, feet stacked
+  side: S(`${mat}<circle cx="54" cy="104" r="11" fill="var(--accent)" stroke="none"/>
+    <line x1="63" y1="108" x2="76" y2="112"/>
+    <polyline points="76,112 120,140 160,166"/>
+    <line x1="160" y1="166" x2="171" y2="168"/>
+    <line x1="76" y1="112" x2="72" y2="168"/>
+    <line x1="76" y1="112" x2="84" y2="56"/>`),
+  // shoulder taps: high plank, one hand lifted and reaching in toward the far shoulder
+  taps: S(`${mat}<circle cx="45" cy="86" r="11" fill="var(--accent)" stroke="none"/>
+    <line x1="54" y1="91" x2="64" y2="97"/>
+    <polyline points="64,97 122,128 176,160"/>
+    <line x1="176" y1="160" x2="187" y2="163"/>
+    <line x1="64" y1="97" x2="66" y2="170"/>
+    <polyline points="64,97 76,80 92,101"/>`),
+  // plank leg lifts: forearm plank, one leg lifted off the mat behind
+  leglift: S(`${mat}<circle cx="42" cy="100" r="11" fill="var(--accent)" stroke="none"/>
+    <line x1="51" y1="105" x2="62" y2="110"/>
+    <polyline points="62,110 120,140 174,166"/>
+    <line x1="174" y1="166" x2="185" y2="169"/>
+    <line x1="120" y1="140" x2="184" y2="120"/>
+    <line x1="62" y1="110" x2="60" y2="168"/>
+    <line x1="60" y1="168" x2="33" y2="170"/>`),
+  // up-downs: forearm plank with an up/down motion arrow (the whole torso rises and lowers)
+  updown: S(`${mat}<circle cx="42" cy="100" r="11" fill="var(--accent)" stroke="none"/>
+    <line x1="51" y1="105" x2="62" y2="110"/>
+    <polyline points="62,110 120,140 174,166"/>
+    <line x1="174" y1="166" x2="185" y2="169"/>
+    <line x1="62" y1="110" x2="60" y2="168"/>
+    <line x1="60" y1="168" x2="33" y2="170"/>
+    <g stroke="var(--rest)" stroke-width="5">
+      <line x1="98" y1="96" x2="98" y2="126"/>
+      <polyline points="92,102 98,96 104,102" fill="none"/>
+      <polyline points="92,120 98,126 104,120" fill="none"/>
+    </g>`),
+  // reverse plank: body faces UP, hands behind on the mat, hips lifted, feet forward flat
+  reverse: S(`${mat}<circle cx="164" cy="104" r="11" fill="var(--accent)" stroke="none"/>
+    <line x1="156" y1="109" x2="146" y2="114"/>
+    <polyline points="146,114 100,138 52,166"/>
+    <line x1="52" y1="166" x2="36" y2="168"/>
+    <line x1="146" y1="114" x2="158" y2="168"/>`),
+  // knee-to-elbow: plank with the front knee driving forward under the body
+  knee: S(`${mat}<circle cx="46" cy="88" r="11" fill="var(--accent)" stroke="none"/>
+    <line x1="55" y1="93" x2="64" y2="100"/>
+    <line x1="64" y1="100" x2="120" y2="138"/>
+    <line x1="120" y1="138" x2="174" y2="166"/>
+    <line x1="174" y1="166" x2="185" y2="169"/>
+    <polyline points="120,138 92,148 80,166"/>
+    <line x1="64" y1="100" x2="66" y2="170"/>`),
 };
 
 /* ---------------- Exercises & programs ---------------- */
