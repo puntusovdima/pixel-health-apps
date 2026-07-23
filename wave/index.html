@@ -75,6 +75,7 @@
   .histLine{stroke:var(--accent); stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round}
   .histSlow{stroke:var(--faint); stroke-width:1.5; fill:none; stroke-dasharray:4 4; opacity:.8}
   .histDot{fill:var(--accent); stroke:var(--bg); stroke-width:2}
+  .histDot.pend{fill:var(--bg); stroke:var(--accent); stroke-width:2; stroke-dasharray:2.5 2}
   .histLbl{font:600 10px "Geist Mono",monospace; fill:var(--faint)}
   .legend{display:flex; gap:16px; color:var(--faint); font-size:12px; font-weight:500}
   .legend i{display:inline-block; width:14px; height:0; border-top:2px solid var(--accent); vertical-align:middle; margin-right:6px; border-radius:2px}
@@ -229,11 +230,40 @@ function parseHash(){
   }catch(e){ return null; }
 }
 
-const hashData = parseHash();
-const checkins = (hashData?.c || []).map(row => ({
-  ms: Date.parse(row[0] + ":00Z"), pain: +row[1], note: row[2] || ""
-})).filter(c => Number.isFinite(c.ms));
+/* Data sources, merged (see below):
+   1. URL #fragment — authoritative engine state, baked in by `coach.py waveapp`.
+   2. localStorage cache — last-known state + locally-logged pending check-ins,
+      so the app is never blind when opened bare (hub tile / menu button / old link).
+   Merge rule: a fresh fragment supersedes cached entries up to its generation
+   time `g` (the engine has either ingested or lost them by then); local entries
+   newer than `g` survive as "pending". */
+const LS_KEY = "spinewave.checkins.v1";
 const NOW = Date.now();
+
+function loadCache(){
+  try{ return (JSON.parse(localStorage.getItem(LS_KEY)) || [])
+        .filter(c => Number.isFinite(c.ms) && Number.isFinite(c.pain)); }
+  catch(e){ return []; }
+}
+function persistCache(list){
+  const keep = list.filter(c => c.ms > Date.now() - 60*86400e3);  // bound the cache
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(keep)); }catch(e){}
+}
+
+const hashData = parseHash();
+const fragSeries = (hashData?.c || []).map(row => ({
+  ms: Date.parse(row[0] + ":00Z"), pain: +row[1], note: row[2] || "", source: "bot"
+})).filter(c => Number.isFinite(c.ms));
+const gMs = hashData?.g ? Date.parse(hashData.g) : null;
+
+let checkins;
+if (hashData){                    // fresh link: fragment wins up to g
+  const survivors = loadCache().filter(c => c.source === "local" && gMs && c.ms > gMs);
+  checkins = [...fragSeries, ...survivors].sort((a,b) => a.ms - b.ms);
+  persistCache(checkins);
+} else {                          // bare open: run on the cache
+  checkins = loadCache().sort((a,b) => a.ms - b.ms);
+}
 
 /* ------------------------------------------------ wave geometry
    One cycle left→right: trough (flare) → ascend (improving) →
@@ -326,7 +356,8 @@ function renderHistory(){
     e = i ? EWMA_SLOW*c.pain + (1-EWMA_SLOW)*e : c.pain;
     line += (i?"L":"M") + xs(c.ms).toFixed(1) + " " + ys(c.pain).toFixed(1);
     slow += (i?"L":"M") + xs(c.ms).toFixed(1) + " " + ys(e).toFixed(1);
-    dots += `<circle class="histDot" r="3.5" cx="${xs(c.ms).toFixed(1)}" cy="${ys(c.pain).toFixed(1)}"><title>${new Date(c.ms).toLocaleDateString()} · pain ${c.pain}${c.note ? " · "+c.note : ""}</title></circle>`;
+    const pend = c.source === "local" ? " pend" : "";
+    dots += `<circle class="histDot${pend}" r="3.5" cx="${xs(c.ms).toFixed(1)}" cy="${ys(c.pain).toFixed(1)}"><title>${new Date(c.ms).toLocaleDateString()} · pain ${c.pain}${c.note ? " · "+c.note : ""}${pend ? " · pending sync" : ""}</title></circle>`;
   });
   box.innerHTML = `<svg viewBox="0 0 ${w} ${h}" aria-label="Recent pain readings">
     <text class="histLbl" x="4" y="${ys(0)+3}">ok</text>
@@ -338,7 +369,7 @@ function renderHistory(){
 }
 
 /* ------------------------------------------------ adjust + save */
-const basePhase = spinePhase(checkins, NOW);
+let basePhase = spinePhase(checkins, NOW);
 
 function currentSliderReading(){
   const pain = parseFloat($("painSlider").value);
@@ -374,24 +405,48 @@ function toast(msg){
 }
 
 const tg = window.Telegram?.WebApp;
+const BOT = "ai_mutter_bot";
+
+function renderAll(){
+  basePhase = spinePhase(checkins, NOW);
+  renderPhase(basePhase);
+  renderHistory();
+  renderGhost(null);
+  renderPending();
+}
+
+function renderPending(){
+  const pend = checkins.filter(c => c.source === "local").length;
+  $("saveHint").textContent = pend
+    ? `${pend} check-in${pend > 1 ? "s" : ""} logged here, pending sync — hit Send in the bot chat to make it official.`
+    : "Saves here instantly, then opens the bot chat with the check-in prefilled — just hit Send.";
+}
+
+/* Save = commit locally (graph updates NOW) + hand the check-in command to the
+   bot chat as a prefilled message. sendData is NOT used: it only works from
+   reply-keyboard launches and the gateway has no web_app_data handler — data
+   sent that way would vanish silently. The deep link works from every launch
+   context (menu button, hub link, plain browser). */
 function save(){
   const r = currentSliderReading();
+  checkins.push({ms: Date.now() - r.agoH*3600e3, pain: r.pain,
+                 note: "wave-app", source: "local"});
+  checkins.sort((a,b) => a.ms - b.ms);
+  persistCache(checkins);
+  touched = false;
+  renderAll();
   const cmd = "checkin " + r.pain + (r.agoH ? " --ago " + r.agoH + "h" : "") + " --note wave-app";
-  const payload = JSON.stringify({event:"wave_checkin", pain:r.pain, ago_h:r.agoH});
-  if (tg && tg.initData){
-    try{ tg.sendData(payload); toast("Sent to the coach"); setTimeout(() => tg.close(), 500); return; }
-    catch(e){ /* menu-button launches can't sendData → fall through to copy */ }
-  }
-  (navigator.clipboard?.writeText(cmd) || Promise.reject()).then(
-    () => toast("Copied. Paste it to the bot: " + cmd),
-    () => toast("Send this to the bot: " + cmd)
-  );
+  const url = "https://t.me/" + BOT + "?text=" + encodeURIComponent(cmd);
+  toast("Logged — now hit Send in the bot chat");
+  setTimeout(() => {
+    if (tg && tg.openTelegramLink){ try{ tg.openTelegramLink(url); return; }catch(e){} }
+    window.open(url, "_blank");
+  }, 400);
 }
 
 /* ------------------------------------------------ boot */
 buildWavePath();
-renderPhase(basePhase);
-renderHistory();
+renderAll();
 if (basePhase.phase !== "unknown"){
   $("painSlider").value = Math.round(basePhase.latest*2)/2;
 }
@@ -400,10 +455,9 @@ const onSlide = () => { touched = true; refreshPreview(); };
 $("painSlider").addEventListener("input", onSlide);
 $("agoSlider").addEventListener("input", onSlide);
 $("saveBtn").addEventListener("click", save);
-$("stamp").textContent = hashData?.g ? "as of " + hashData.g.replace("T"," ").slice(5, 16) : "simulator";
-$("saveHint").textContent = tg && tg.initData
-  ? "Logs straight into your history."
-  : "Opens outside Telegram: the check-in command gets copied for you to paste to the bot.";
+$("stamp").textContent = hashData?.g
+  ? "as of " + hashData.g.replace("T", " ").slice(5, 16)
+  : (checkins.length ? "cached · ask the bot for a fresh link" : "no data yet");
 if (tg){ try{ tg.ready(); tg.expand(); }catch(e){} }
 </script>
 </body>
