@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#0a0a0b" />
+<title>Spine Wave</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0b; --surface:#141416; --surface-2:#1b1b1f;
+    --line:#26262b; --line-2:#34343a;
+    --fg:#fafafa; --muted:#a1a1aa; --faint:#6f6f78;
+    --accent:#f5a524; --accent-ink:#1c1304; --accent-soft:rgba(245,165,36,.13);
+    --rest:#34d399; --rest-ink:#05271a; --rest-soft:rgba(52,211,153,.12);
+    --r-lg:22px; --r-md:15px; --r-pill:999px;
+    --ease:cubic-bezier(.23,1,.32,1);
+    --pad: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; height:100%}
+  body{
+    background:var(--bg); color:var(--fg);
+    font:400 16px/1.45 "Geist",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; letter-spacing:-0.01em;
+    display:flex; flex-direction:column; min-height:100dvh; padding:var(--pad);
+  }
+  ::selection{background:var(--accent-soft)}
+  button{font-family:inherit; letter-spacing:-0.01em}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px}
+
+  header, main, main > *, .panel, .readout > *{min-width:0}
+  header{padding:20px 22px 4px; display:flex; align-items:baseline; justify-content:space-between; gap:10px}
+  header h1{font-size:19px; font-weight:700; margin:0; letter-spacing:-0.02em}
+  header .sub{color:var(--faint); font-size:13px; font-weight:500}
+  .stamp{color:var(--faint); font:600 12px/1 "Geist Mono",monospace; font-variant-numeric:tabular-nums}
+  main{flex:1; display:flex; flex-direction:column; padding:12px 18px 22px; gap:13px; max-width:520px; width:100%; margin:0 auto}
+  .label{color:var(--faint); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; margin:4px 2px 0}
+
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:16px 18px; display:flex; flex-direction:column; gap:14px}
+
+  /* ---- phase readout ---- */
+  .readout{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+  .chip{
+    font:700 13px/1 "Geist Mono",monospace; letter-spacing:.1em; text-transform:uppercase;
+    padding:8px 14px; border-radius:var(--r-pill); background:var(--accent-soft); color:var(--accent);
+    border:1px solid rgba(245,165,36,.25); transition:all .25s var(--ease);
+  }
+  .chip.good{background:var(--rest-soft); color:var(--rest); border-color:rgba(52,211,153,.28)}
+  .chip.unknown{background:var(--surface-2); color:var(--faint); border-color:var(--line-2)}
+  .nums{color:var(--muted); font:600 13px/1.5 "Geist Mono",monospace; font-variant-numeric:tabular-nums}
+  .nums b{color:var(--fg)}
+
+  /* ---- wave ---- */
+  .waveWrap{position:relative; margin:2px -4px 0}
+  .waveWrap svg{display:block; width:100%; height:auto}
+  .zoneLbl{font:600 10px "Geist Mono",monospace; letter-spacing:.12em; text-transform:uppercase; fill:var(--faint); opacity:.75}
+  .waveLine{stroke:var(--line-2); stroke-width:2.5; fill:none}
+  .waveFill{fill:url(#wgrad); opacity:.5}
+  .axis{stroke:var(--line); stroke-width:1; stroke-dasharray:3 5}
+  .you{fill:var(--accent); stroke:var(--bg); stroke-width:3}
+  .youGlow{fill:var(--accent); opacity:.18}
+  .ghost{fill:none; stroke:var(--fg); stroke-width:2; stroke-dasharray:2 3; opacity:.85}
+  .you, .youGlow, .ghost{transition:cx .45s var(--ease), cy .45s var(--ease)}
+  .youTag{font:700 11px "Geist Mono",monospace; fill:var(--accent); letter-spacing:.06em}
+
+  .planLine{color:var(--muted); font-size:14px; line-height:1.55}
+  .planLine b{color:var(--fg); font-weight:600}
+
+  /* ---- history chart ---- */
+  .histWrap svg{display:block; width:100%; height:auto}
+  .histLine{stroke:var(--accent); stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round}
+  .histSlow{stroke:var(--faint); stroke-width:1.5; fill:none; stroke-dasharray:4 4; opacity:.8}
+  .histDot{fill:var(--accent); stroke:var(--bg); stroke-width:2}
+  .histLbl{font:600 10px "Geist Mono",monospace; fill:var(--faint)}
+  .legend{display:flex; gap:16px; color:var(--faint); font-size:12px; font-weight:500}
+  .legend i{display:inline-block; width:14px; height:0; border-top:2px solid var(--accent); vertical-align:middle; margin-right:6px; border-radius:2px}
+  .legend i.slow{border-top:2px dashed var(--faint)}
+  .empty{color:var(--faint); font-size:14px; text-align:center; padding:10px 0}
+
+  /* ---- sliders ---- */
+  .slider .row{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px}
+  .slider .row span:first-child{font-size:14px; color:var(--fg); font-weight:500}
+  .slider .val{font:700 14px/1 "Geist Mono",monospace; color:var(--accent); font-variant-numeric:tabular-nums}
+  input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:var(--r-pill); background:var(--line-2); outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--accent); border:3px solid var(--bg); box-shadow:0 0 0 1px var(--accent); cursor:pointer; transition:transform .12s var(--ease)}
+  input[type=range]:active::-webkit-slider-thumb{transform:scale(1.15)}
+  input[type=range]::-moz-range-thumb{width:17px; height:17px; border-radius:50%; background:var(--accent); border:3px solid var(--bg); cursor:pointer}
+  .scaleHints{display:flex; justify-content:space-between; color:var(--faint); font-size:11px; font-weight:500; margin-top:6px}
+
+  .preview{
+    border-top:1px solid var(--line); padding-top:12px; display:none;
+    color:var(--muted); font-size:14px; line-height:1.5;
+  }
+  .preview.on{display:block}
+  .preview b{color:var(--fg)}
+  .preview .arrow{color:var(--accent); font-weight:700}
+
+  .btn{
+    border:none; border-radius:var(--r-md); padding:16px; font-size:16px; font-weight:600; color:var(--accent-ink);
+    background:var(--accent); cursor:pointer; width:100%; transition:transform .12s var(--ease), opacity .15s;
+  }
+  .btn:active{transform:scale(.975)}
+  .btn:disabled{opacity:.5; cursor:default}
+  .btn.ghost{background:transparent; color:var(--fg); border:1px solid var(--line-2)}
+  .btn.ghost:active{background:var(--surface)}
+  .hint{color:var(--faint); font-size:12.5px; text-align:center; line-height:1.5}
+
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(80px);
+    background:var(--surface-2); border:1px solid var(--line-2); color:var(--fg);
+    border-radius:var(--r-md); padding:12px 18px; font-size:14px; font-weight:500;
+    opacity:0; transition:all .3s var(--ease); pointer-events:none; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Spine Wave</h1><div class="sub" id="sub">where you are on the cycle</div></div>
+  <div class="stamp" id="stamp"></div>
+</header>
+<main>
+
+  <div class="panel">
+    <div class="readout">
+      <span class="chip unknown" id="chip">no data</span>
+      <span class="nums" id="nums"></span>
+    </div>
+    <div class="waveWrap">
+      <svg viewBox="0 0 360 150" aria-label="Position on the flare and remission wave">
+        <defs>
+          <linearGradient id="wgrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#f5a524" stop-opacity=".14"/>
+            <stop offset="1" stop-color="#f5a524" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <line class="axis" x1="8" y1="72" x2="352" y2="72"/>
+        <path id="wavePath" class="waveLine"/>
+        <path id="waveFill" class="waveFill"/>
+        <text class="zoneLbl" x="52" y="143" text-anchor="middle">recovering</text>
+        <text class="zoneLbl" x="180" y="143" text-anchor="middle">strong</text>
+        <text class="zoneLbl" x="308" y="143" text-anchor="middle">sliding</text>
+        <circle id="youGlow" class="youGlow" r="14" cx="-30" cy="72"/>
+        <circle id="you" class="you" r="6.5" cx="-30" cy="72"/>
+        <circle id="ghost" class="ghost" r="7.5" cx="-30" cy="72" style="display:none"/>
+        <text id="youTag" class="youTag" x="-30" y="0" text-anchor="middle">you</text>
+      </svg>
+    </div>
+    <div class="planLine" id="plan"></div>
+  </div>
+
+  <div class="label">Last 3 weeks</div>
+  <div class="panel histWrap">
+    <div id="histBox"></div>
+    <div class="legend"><span><i></i>readings (feel)</span><span><i class="slow"></i>baseline</span></div>
+  </div>
+
+  <div class="label">Check in / adjust</div>
+  <div class="panel">
+    <div class="slider">
+      <div class="row"><span>Pain right now</span><span class="val"><span id="painVal">3</span> / 10</span></div>
+      <input type="range" id="painSlider" min="0" max="10" step="0.5" value="3" aria-label="Pain right now, 0 to 10" />
+      <div class="scaleHints"><span>0 pain-free</span><span>5 rough</span><span>10 bad flare</span></div>
+    </div>
+    <div class="slider">
+      <div class="row"><span>When was this</span><span class="val" id="agoVal">now</span></div>
+      <input type="range" id="agoSlider" min="0" max="24" step="1" value="0" aria-label="How many hours ago" />
+    </div>
+    <div class="preview" id="preview"></div>
+    <button class="btn" id="saveBtn">Log this check-in</button>
+    <div class="hint" id="saveHint"></div>
+  </div>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   Engine port. These constants and spinePhase() MUST stay in
+   lockstep with coach.py (the deterministic source of truth).
+   ============================================================ */
+const CHECKIN_WINDOW_DAYS = 21;
+const EWMA_FAST = 0.6, EWMA_SLOW = 0.25, TREND_BAND = 0.4;
+const PHASE_RULES = {
+  flare:     {cap:2, relief:0.9,  strength:0},
+  worsening: {cap:3, relief:0.5,  strength:0},
+  improving: {cap:4, relief:0.2,  strength:0.15},
+  steady:    {cap:4, relief:0,    strength:0},
+  good:      {cap:5, relief:0,    strength:0.35},
+  unknown:   {cap:5, relief:0,    strength:0},
+};
+
+function ewma(vals, a){ let e = vals[0]; for (let i=1;i<vals.length;i++) e = a*vals[i] + (1-a)*e; return e; }
+
+function spinePhase(checkins, nowMs){
+  const cutoff = nowMs - CHECKIN_WINDOW_DAYS*86400e3;
+  const cs = checkins.filter(c => c.ms >= cutoff && Number.isFinite(c.pain))
+                     .sort((a,b) => a.ms - b.ms);
+  if (!cs.length) return {phase:"unknown", level:null, latest:null, trend:"unknown", signal:0, n:0, ...PHASE_RULES.unknown};
+  const pains = cs.map(c => c.pain);
+  const latest = pains[pains.length-1];
+  const level = ewma(pains, EWMA_SLOW);
+  const signal = ewma(pains, EWMA_FAST) - level;
+  const trend = signal >= TREND_BAND ? "worsening" : signal <= -TREND_BAND ? "improving" : "flat";
+  let phase;
+  if (latest >= 7 || level >= 6) phase = "flare";
+  else if (trend === "worsening" && (level >= 3.5 || latest >= 5)) phase = "worsening";
+  else if (trend === "improving" && level >= 3) phase = "improving";
+  else if (level <= 2.5 && trend !== "worsening") phase = "good";
+  else phase = "steady";
+  return {phase, level, latest, trend, signal, n:cs.length, ...PHASE_RULES[phase]};
+}
+
+/* ------------------------------------------------ data from #fragment */
+function parseHash(){
+  const m = location.hash.match(/[#&]d=([A-Za-z0-9_-]+)/);
+  if (!m) return null;
+  try{
+    const pad = "=".repeat((4 - m[1].length % 4) % 4);
+    const json = decodeURIComponent(escape(atob(m[1].replace(/-/g,"+").replace(/_/g,"/") + pad)));
+    return JSON.parse(json);
+  }catch(e){ return null; }
+}
+
+const hashData = parseHash();
+const checkins = (hashData?.c || []).map(row => ({
+  ms: Date.parse(row[0] + ":00Z"), pain: +row[1], note: row[2] || ""
+})).filter(c => Number.isFinite(c.ms));
+const NOW = Date.now();
+
+/* ------------------------------------------------ wave geometry
+   One cycle left→right: trough (flare) → ascend (improving) →
+   peak (good) → descend (worsening) → trough.  wellbeing = sin(θ),
+   θ = 3π/2 + t·2π for t in [0,1]. */
+const W = 360, X0 = 8, X1 = 352, YMID = 72, AMP = 46;
+function waveY(t){ return YMID - AMP*Math.sin(1.5*Math.PI + t*2*Math.PI); }
+function waveX(t){ return X0 + t*(X1 - X0); }
+
+function buildWavePath(){
+  let d = "", N = 100;
+  for (let i=0;i<=N;i++){
+    const t = i/N;
+    d += (i ? "L" : "M") + waveX(t).toFixed(1) + " " + waveY(t).toFixed(1);
+  }
+  document.getElementById("wavePath").setAttribute("d", d);
+  document.getElementById("waveFill").setAttribute("d", d + `L${X1} ${YMID+AMP+8}L${X0} ${YMID+AMP+8}Z`);
+}
+
+/* Deterministic phase+level → position t on the cycle. */
+function waveT(ph){
+  const lvl = ph.level ?? 5;
+  switch (ph.phase){
+    case "flare":     return ph.signal < 0 ? 0.04 : 0.96;
+    case "improving": return 0.5 * (1 - lvl/10);
+    case "good":      return 0.5;
+    case "worsening": return 0.5 + 0.5*(lvl/10);
+    case "steady":    return ph.signal >= 0 ? 0.5 + 0.5*(lvl/10) : 0.5*(1 - lvl/10);
+    default:          return null;
+  }
+}
+
+/* ------------------------------------------------ render */
+const $ = id => document.getElementById(id);
+const PHASE_WORD = {flare:"flare", worsening:"sliding", improving:"recovering", steady:"steady", good:"strong", unknown:"no data"};
+
+function renderPhase(ph){
+  const chip = $("chip");
+  chip.textContent = PHASE_WORD[ph.phase];
+  chip.className = "chip" + (ph.phase === "good" ? " good" : ph.phase === "unknown" ? " unknown" : "");
+  if (ph.phase === "unknown"){
+    $("nums").textContent = "";
+    $("plan").innerHTML = "No recent check-ins. Move the slider below and log one to put yourself on the wave.";
+    $("you").style.display = $("youGlow").style.display = $("youTag").style.display = "none";
+    return;
+  }
+  $("nums").innerHTML = `level <b>${ph.level.toFixed(1)}</b>/10 · latest <b>${ph.latest}</b> · ${ph.trend} · ${ph.n} readings`;
+  const bits = [`keep intensity <b>≤${ph.cap}</b>`];
+  if (ph.relief > 0) bits.push("favor <b>gentle relief work</b>");
+  if (ph.strength > 0) bits.push("good window to <b>build strength</b>");
+  const framing = {
+    flare: "Rough patch. Ride it out gently, it passes.",
+    worsening: "Trending stiffer. Stay ahead of it with light work.",
+    improving: "On the way back up. Rebuild gradually.",
+    steady: "Holding steady.",
+    good: "Strong stretch. Bank resilience while it lasts.",
+  }[ph.phase];
+  $("plan").innerHTML = framing + " Plan: " + bits.join(", ") + ".";
+  const t = waveT(ph);
+  const x = waveX(t), y = waveY(t);
+  ["you","youGlow","youTag"].forEach(id => $(id).style.display = "");
+  $("you").setAttribute("cx", x);  $("you").setAttribute("cy", y);
+  $("youGlow").setAttribute("cx", x); $("youGlow").setAttribute("cy", y);
+  $("youTag").setAttribute("x", x);
+  $("youTag").setAttribute("y", y < YMID ? y - 16 : y + 24);
+}
+
+function renderGhost(ph){
+  const g = $("ghost");
+  if (!ph){ g.style.display = "none"; return; }
+  const t = waveT(ph);
+  if (t == null){ g.style.display = "none"; return; }
+  g.style.display = "";
+  g.setAttribute("cx", waveX(t)); g.setAttribute("cy", waveY(t));
+}
+
+function renderHistory(){
+  const box = $("histBox");
+  if (checkins.length < 2){
+    box.innerHTML = `<div class="empty">${checkins.length ? "One reading so far. A few more and the wave takes shape." : "No readings in the last 3 weeks."}</div>`;
+    return;
+  }
+  const cs = [...checkins].sort((a,b)=>a.ms-b.ms);
+  const w = 360, h = 120, padL = 26, padR = 10, padT = 10, padB = 18;
+  const t0 = cs[0].ms, t1 = Math.max(NOW, cs[cs.length-1].ms);
+  const xs = ms => padL + (w-padL-padR) * (t1 === t0 ? 1 : (ms-t0)/(t1-t0));
+  const ys = pain => padT + (h-padT-padB) * (pain/10);   /* pain 0 top → wellbeing high on top */
+  let line = "", slow = "", dots = "", e = cs[0].pain;
+  cs.forEach((c,i) => {
+    e = i ? EWMA_SLOW*c.pain + (1-EWMA_SLOW)*e : c.pain;
+    line += (i?"L":"M") + xs(c.ms).toFixed(1) + " " + ys(c.pain).toFixed(1);
+    slow += (i?"L":"M") + xs(c.ms).toFixed(1) + " " + ys(e).toFixed(1);
+    dots += `<circle class="histDot" r="3.5" cx="${xs(c.ms).toFixed(1)}" cy="${ys(c.pain).toFixed(1)}"><title>${new Date(c.ms).toLocaleDateString()} · pain ${c.pain}${c.note ? " · "+c.note : ""}</title></circle>`;
+  });
+  box.innerHTML = `<svg viewBox="0 0 ${w} ${h}" aria-label="Recent pain readings">
+    <text class="histLbl" x="4" y="${ys(0)+3}">ok</text>
+    <text class="histLbl" x="4" y="${ys(10)+3}">bad</text>
+    <line x1="${padL}" y1="${ys(5)}" x2="${w-padR}" y2="${ys(5)}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 5"/>
+    <path class="histSlow" d="${slow}"/>
+    <path class="histLine" d="${line}"/>
+    ${dots}</svg>`;
+}
+
+/* ------------------------------------------------ adjust + save */
+const basePhase = spinePhase(checkins, NOW);
+
+function currentSliderReading(){
+  const pain = parseFloat($("painSlider").value);
+  const agoH = parseInt($("agoSlider").value, 10);
+  return {pain, agoH, ms: NOW - agoH*3600e3};
+}
+
+let touched = false;
+function refreshPreview(){
+  const r = currentSliderReading();
+  $("painVal").textContent = r.pain % 1 ? r.pain.toFixed(1) : r.pain;
+  $("agoVal").textContent = r.agoH === 0 ? "now" : r.agoH + "h ago";
+  const ph = spinePhase([...checkins, {ms:r.ms, pain:r.pain}], NOW);
+  renderGhost(touched ? ph : null);   // ghost only once he actually moves a slider
+  const pv = $("preview");
+  if (!touched) return;
+  pv.classList.add("on");
+  if (basePhase.phase === "unknown"){
+    pv.innerHTML = `First reading <b>${r.pain}</b>/10 <span class="arrow">→</span> wave starts at <b>${PHASE_WORD[ph.phase]}</b>, intensity ≤${ph.cap}.`;
+  } else if (ph.phase === basePhase.phase){
+    pv.innerHTML = `Logging <b>${r.pain}</b>/10 keeps you at <b>${PHASE_WORD[ph.phase]}</b> (level ${ph.level.toFixed(1)}).`;
+  } else {
+    pv.innerHTML = `Logging <b>${r.pain}</b>/10 moves you <b>${PHASE_WORD[basePhase.phase]}</b> <span class="arrow">→</span> <b>${PHASE_WORD[ph.phase]}</b> (level ${ph.level.toFixed(1)}, intensity ≤${ph.cap}).`;
+  }
+}
+
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+const tg = window.Telegram?.WebApp;
+function save(){
+  const r = currentSliderReading();
+  const cmd = "checkin " + r.pain + (r.agoH ? " --ago " + r.agoH + "h" : "") + " --note wave-app";
+  const payload = JSON.stringify({event:"wave_checkin", pain:r.pain, ago_h:r.agoH});
+  if (tg && tg.initData){
+    try{ tg.sendData(payload); toast("Sent to the coach"); setTimeout(() => tg.close(), 500); return; }
+    catch(e){ /* menu-button launches can't sendData → fall through to copy */ }
+  }
+  (navigator.clipboard?.writeText(cmd) || Promise.reject()).then(
+    () => toast("Copied. Paste it to the bot: " + cmd),
+    () => toast("Send this to the bot: " + cmd)
+  );
+}
+
+/* ------------------------------------------------ boot */
+buildWavePath();
+renderPhase(basePhase);
+renderHistory();
+if (basePhase.phase !== "unknown"){
+  $("painSlider").value = Math.round(basePhase.latest*2)/2;
+}
+refreshPreview();
+const onSlide = () => { touched = true; refreshPreview(); };
+$("painSlider").addEventListener("input", onSlide);
+$("agoSlider").addEventListener("input", onSlide);
+$("saveBtn").addEventListener("click", save);
+$("stamp").textContent = hashData?.g ? "as of " + hashData.g.replace("T"," ").slice(5, 16) : "simulator";
+$("saveHint").textContent = tg && tg.initData
+  ? "Logs straight into your history."
+  : "Opens outside Telegram: the check-in command gets copied for you to paste to the bot.";
+if (tg){ try{ tg.ready(); tg.expand(); }catch(e){} }
+</script>
+</body>
+</html>
